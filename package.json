@@ -1,0 +1,37 @@
+{
+  "name": "vexa-invoice-server",
+  "version": "1.0.0",
+  "description": "VEXA Invoice Backend Engine",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "dev:frontend": "cd ../frontend && npm run dev",
+    "build:frontend": "cd ../frontend && npm run build",
+    "test": "node tests/subscription.test.js",
+    "test:subscription": "node tests/subscription.test.js",
+    "prisma:generate": "prisma generate",
+    "prisma:push": "prisma db push"
+  },
+  "devDependencies": {
+    "prisma": "^5.20.0"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.20.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "exceljs": "^4.4.0",
+    "express": "^4.21.0",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^10.0.10",
+    "pdfkit": "^0.20.2",
+    "razorpay": "^2.9.8",
+    "swagger-jsdoc": "^6.3.0",
+    "swagger-ui-express": "^5.0.1",
+    "zod": "^3.23.8"
+  }
+}

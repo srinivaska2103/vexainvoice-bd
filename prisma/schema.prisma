@@ -1,0 +1,1520 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model customers {
+  id                  String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id         String                         @db.Uuid
+  customer_code       String?                        @db.VarChar(50)
+  name                String                         @db.VarChar(200)
+  customer_type       customer_type?                 @default(RETAIL)
+  phone               String?                        @db.VarChar(20)
+  email               String?                        @db.VarChar(150)
+  address             String?
+  city                String?                        @db.VarChar(100)
+  state               String?                        @db.VarChar(100)
+  pincode             String?                        @db.VarChar(10)
+  gst_number          String?                        @db.VarChar(20)
+  credit_limit        Decimal?                       @default(0) @db.Decimal(14, 2)
+  opening_balance     Decimal?                       @default(0) @db.Decimal(14, 2)
+  current_balance     Decimal?                       @default(0) @db.Decimal(14, 2)
+  price_level         String?                        @default("RETAIL") @db.VarChar(30)
+  is_active           Boolean?                       @default(true)
+  created_at          DateTime?                      @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime?                      @default(now()) @db.Timestamptz(6)
+  customer_payments   customer_payments[]
+  businesses          businesses                     @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  quotations          quotations[]
+  sales               sales[]
+  whatsapp_recipients whatsapp_campaign_recipients[]
+  whatsapp_messages   whatsapp_messages[]
+  crm_follow_ups      crm_follow_ups[]
+  crm_customer_notes  crm_customer_notes[]
+  customer_orders     customer_orders[]
+
+  @@unique([business_id, customer_code])
+  @@index([business_id], map: "idx_customers_business")
+  @@index([phone], map: "idx_customers_phone")
+}
+
+model products {
+  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id        String               @db.Uuid
+  category_id        String?              @db.Uuid
+  brand_id           String?              @db.Uuid
+  name               String               @db.VarChar(200)
+  sku                String?              @db.VarChar(100)
+  barcode            String?              @db.VarChar(100)
+  description        String?
+  unit               unit_type            @default(PCS)
+  hsn_code           String?              @db.VarChar(20)
+  gst_percentage     Decimal?             @default(0) @db.Decimal(5, 2)
+  purchase_price     Decimal?             @default(0) @db.Decimal(14, 2)
+  retail_price       Decimal?             @default(0) @db.Decimal(14, 2)
+  wholesale_price    Decimal?             @default(0) @db.Decimal(14, 2)
+  dealer_price       Decimal?             @default(0) @db.Decimal(14, 2)
+  minimum_stock      Decimal?             @default(0) @db.Decimal(14, 3)
+  maximum_stock      Decimal?             @db.Decimal(14, 3)
+  has_variants       Boolean?             @default(false)
+  is_active          Boolean?             @default(true)
+  created_at         DateTime?            @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?            @default(now()) @db.Timestamptz(6)
+  product_stock      product_stock[]
+  product_variants   product_variants[]
+  brands             brands?              @relation(fields: [brand_id], references: [id], onUpdate: NoAction)
+  businesses         businesses           @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  categories         categories?          @relation(fields: [category_id], references: [id], onUpdate: NoAction)
+  purchase_items     purchase_items[]
+  quotation_items    quotation_items[]
+  sale_items         sale_items[]
+  stock_transactions stock_transactions[]
+
+  @@unique([business_id, barcode])
+  @@unique([business_id, sku])
+  @@index([barcode], map: "idx_products_barcode")
+  @@index([business_id], map: "idx_products_business")
+  @@index([business_id, is_active], map: "idx_products_business_active")
+  @@index([sku], map: "idx_products_sku")
+}
+
+model stock_transactions {
+  id               String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id      String                 @db.Uuid
+  product_id       String                 @db.Uuid
+  variant_id       String?                @db.Uuid
+  transaction_type stock_transaction_type
+  quantity         Decimal                @db.Decimal(14, 3)
+  reference_id     String?                @db.Uuid
+  reference_number String?                @db.VarChar(100)
+  notes            String?
+  transaction_date DateTime?              @default(now()) @db.Timestamptz(6)
+  created_by       String?                @db.Uuid
+  businesses       businesses             @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users            users?                 @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  products         products               @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+  product_variants product_variants?      @relation(fields: [variant_id], references: [id], onUpdate: NoAction)
+
+  @@index([business_id], map: "idx_stock_business")
+  @@index([business_id, product_id, variant_id], map: "idx_stock_biz_prod_var")
+  @@index([business_id, transaction_type], map: "idx_stock_biz_tx_type")
+  @@index([transaction_date], map: "idx_stock_date")
+  @@index([product_id], map: "idx_stock_product")
+}
+
+model users {
+  id                      String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id             String                         @db.Uuid
+  name                    String                         @db.VarChar(150)
+  email                   String?                        @db.VarChar(150)
+  phone                   String?                        @db.VarChar(20)
+  password_hash           String
+  role                    user_role                      @default(BILLING_STAFF)
+  custom_role_id          String?                        @db.Uuid
+  custom_roles            custom_roles?                  @relation(fields: [custom_role_id], references: [id], onDelete: SetNull)
+  is_active               Boolean?                       @default(true)
+  created_at              DateTime?                      @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime?                      @default(now()) @db.Timestamptz(6)
+  audit_logs              audit_logs[]
+  customer_payments       customer_payments[]
+  purchase_payments       purchase_payments[]
+  purchases               purchases[]
+  quotations              quotations[]
+  sale_payments           sale_payments[]
+  sales                   sales[]
+  stock_transactions      stock_transactions[]
+  supplier_payments       supplier_payments[]
+  whatsapp_txs            whatsapp_wallet_transactions[]
+  whatsapp_campaigns      whatsapp_campaigns[]
+  crm_followups_assigned  crm_follow_ups[]               @relation("crm_followups_assigned")
+  crm_followups_created   crm_follow_ups[]               @relation("crm_followups_creator")
+  crm_customer_notes      crm_customer_notes[]
+  crm_saved_segments      crm_saved_segments[]
+  support_tickets         support_tickets[]
+  support_ticket_messages support_ticket_messages[]
+  businesses              businesses                     @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  sales_enquiries         sales_enquiries[]
+
+  @@unique([business_id, email])
+  @@index([business_id], map: "idx_users_business")
+}
+
+model audit_logs {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id  String     @db.Uuid
+  user_id      String?    @db.Uuid
+  action       String     @db.VarChar(100)
+  module       String     @db.VarChar(100)
+  reference_id String?    @db.Uuid
+  old_data     Json?
+  new_data     Json?
+  created_at   DateTime?  @default(now()) @db.Timestamptz(6)
+  businesses   businesses @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users        users?     @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([business_id], map: "idx_audit_logs_business")
+  @@index([created_at], map: "idx_audit_logs_created_at")
+  @@index([user_id], map: "idx_audit_logs_user")
+}
+
+model brands {
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id String     @db.Uuid
+  name        String     @db.VarChar(150)
+  is_active   Boolean?   @default(true)
+  created_at  DateTime?  @default(now()) @db.Timestamptz(6)
+  businesses  businesses @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products    products[]
+
+  @@unique([business_id, name])
+}
+
+model businesses {
+  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_name       String               @db.VarChar(200)
+  business_type       business_type
+  owner_name          String?              @db.VarChar(150)
+  phone               String?              @db.VarChar(20)
+  email               String?              @db.VarChar(150)
+  address             String?
+  city                String?              @db.VarChar(100)
+  state               String?              @db.VarChar(100)
+  pincode             String?              @db.VarChar(10)
+  gst_number          String?              @db.VarChar(20)
+  pan_number          String?              @db.VarChar(20)
+  logo_url            String?
+  currency            String?              @default("INR") @db.VarChar(10)
+  invoice_prefix      String?              @default("INV") @db.VarChar(20)
+  next_invoice_number BigInt?              @default(1)
+  company_id          String?              @unique @db.VarChar(50)
+  subscription_status subscription_status? @default(ACTIVE)
+  license_status      license_status?      @default(ACTIVE)
+  trial_start_at      DateTime?            @db.Timestamptz(6)
+  trial_end_at        DateTime?            @db.Timestamptz(6)
+  has_used_trial      Boolean?             @default(false)
+
+  // QR Self-Shopping & Customer Orders Entitlement Tracking
+  self_shopping_status         self_shopping_status? @default(TRIALING)
+  self_shopping_trial_start_at DateTime?             @db.Timestamptz(6)
+  self_shopping_trial_end_at   DateTime?             @db.Timestamptz(6)
+  has_used_self_shopping_trial Boolean?              @default(false)
+
+  is_active                    Boolean?                       @default(true)
+  created_at                   DateTime?                      @default(now()) @db.Timestamptz(6)
+  updated_at                   DateTime?                      @default(now()) @db.Timestamptz(6)
+  audit_logs                   audit_logs[]
+  brands                       brands[]
+  categories                   categories[]
+  colors                       colors[]
+  customer_payments            customer_payments[]
+  customers                    customers[]
+  product_stock                product_stock[]
+  products                     products[]
+  purchases                    purchases[]
+  quotations                   quotations[]
+  sales                        sales[]
+  sizes                        sizes[]
+  stock_transactions           stock_transactions[]
+  supplier_payments            supplier_payments[]
+  suppliers                    suppliers[]
+  users                        users[]
+  email_logs                   email_logs[]
+  whatsapp_wallets             whatsapp_wallets?
+  whatsapp_wallet_transactions whatsapp_wallet_transactions[]
+  whatsapp_campaigns           whatsapp_campaigns[]
+  whatsapp_messages            whatsapp_messages[]
+  whatsapp_accounts            whatsapp_accounts?
+  crm_follow_ups               crm_follow_ups[]
+  crm_customer_notes           crm_customer_notes[]
+  crm_saved_segments           crm_saved_segments[]
+  platform_subscriptions       platform_subscriptions[]
+  platform_licenses            platform_licenses[]
+  payment_transactions         payment_transactions[]
+  payment_receipts             payment_receipts[]
+  custom_roles                 custom_roles[]
+  customer_orders              customer_orders[]
+  support_tickets              support_tickets[]
+  sales_enquiries              sales_enquiries[]
+}
+
+model categories {
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id String     @db.Uuid
+  name        String     @db.VarChar(150)
+  description String?
+  is_active   Boolean?   @default(true)
+  created_at  DateTime?  @default(now()) @db.Timestamptz(6)
+  businesses  businesses @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products    products[]
+
+  @@unique([business_id, name])
+}
+
+model colors {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id      String             @db.Uuid
+  name             String             @db.VarChar(100)
+  hex_code         String?            @db.VarChar(10)
+  created_at       DateTime?          @default(now()) @db.Timestamptz(6)
+  businesses       businesses         @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  product_variants product_variants[]
+
+  @@unique([business_id, name])
+}
+
+model customer_payments {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id      String         @db.Uuid
+  customer_id      String         @db.Uuid
+  sale_id          String?        @db.Uuid
+  amount           Decimal        @db.Decimal(14, 2)
+  payment_method   payment_method
+  payment_date     DateTime?      @default(now()) @db.Timestamptz(6)
+  reference_number String?        @db.VarChar(100)
+  notes            String?
+  created_by       String?        @db.Uuid
+  businesses       businesses     @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users            users?         @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  customers        customers      @relation(fields: [customer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  sales            sales?         @relation(fields: [sale_id], references: [id], onUpdate: NoAction)
+
+  @@index([customer_id], map: "idx_customer_payments_customer")
+  @@index([business_id], map: "idx_customer_payments_business")
+  @@index([business_id, payment_date], map: "idx_customer_payments_biz_date")
+}
+
+model product_stock {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id      String            @db.Uuid
+  product_id       String            @db.Uuid
+  variant_id       String?           @db.Uuid
+  quantity         Decimal?          @default(0) @db.Decimal(14, 3)
+  updated_at       DateTime?         @default(now()) @db.Timestamptz(6)
+  businesses       businesses        @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products         products          @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  product_variants product_variants? @relation(fields: [variant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([business_id, product_id, variant_id])
+}
+
+model product_variants {
+  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  product_id         String               @db.Uuid
+  color_id           String?              @db.Uuid
+  size_id            String?              @db.Uuid
+  variant_name       String?              @db.VarChar(200)
+  sku                String?              @db.VarChar(100)
+  barcode            String?              @db.VarChar(100)
+  purchase_price     Decimal?             @default(0) @db.Decimal(14, 2)
+  retail_price       Decimal?             @default(0) @db.Decimal(14, 2)
+  wholesale_price    Decimal?             @default(0) @db.Decimal(14, 2)
+  dealer_price       Decimal?             @default(0) @db.Decimal(14, 2)
+  opening_stock      Decimal?             @default(0) @db.Decimal(14, 3)
+  current_stock      Decimal?             @default(0) @db.Decimal(14, 3)
+  created_at         DateTime?            @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?            @default(now()) @db.Timestamptz(6)
+  product_stock      product_stock[]
+  colors             colors?              @relation(fields: [color_id], references: [id], onUpdate: NoAction)
+  products           products             @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  sizes              sizes?               @relation(fields: [size_id], references: [id], onUpdate: NoAction)
+  purchase_items     purchase_items[]
+  quotation_items    quotation_items[]
+  sale_items         sale_items[]
+  stock_transactions stock_transactions[]
+
+  @@unique([product_id, barcode])
+  @@unique([product_id, sku])
+  @@index([barcode], map: "idx_product_variants_barcode")
+  @@index([product_id], map: "idx_product_variants_product")
+}
+
+model purchase_items {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  purchase_id      String            @db.Uuid
+  product_id       String            @db.Uuid
+  variant_id       String?           @db.Uuid
+  product_name     String            @db.VarChar(200)
+  quantity         Decimal           @db.Decimal(14, 3)
+  unit_price       Decimal           @db.Decimal(14, 2)
+  discount_amount  Decimal?          @default(0) @db.Decimal(14, 2)
+  gst_percentage   Decimal?          @default(0) @db.Decimal(5, 2)
+  taxable_amount   Decimal?          @default(0) @db.Decimal(14, 2)
+  cgst_amount      Decimal?          @default(0) @db.Decimal(14, 2)
+  sgst_amount      Decimal?          @default(0) @db.Decimal(14, 2)
+  igst_amount      Decimal?          @default(0) @db.Decimal(14, 2)
+  total_amount     Decimal?          @default(0) @db.Decimal(14, 2)
+  created_at       DateTime?         @default(now()) @db.Timestamptz(6)
+  products         products          @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+  purchases        purchases         @relation(fields: [purchase_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  product_variants product_variants? @relation(fields: [variant_id], references: [id], onUpdate: NoAction)
+}
+
+model purchase_payments {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  purchase_id      String         @db.Uuid
+  payment_method   payment_method
+  amount           Decimal        @db.Decimal(14, 2)
+  payment_date     DateTime?      @default(now()) @db.Timestamptz(6)
+  reference_number String?        @db.VarChar(100)
+  notes            String?
+  created_by       String?        @db.Uuid
+  users            users?         @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  purchases        purchases      @relation(fields: [purchase_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model purchases {
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id       String              @db.Uuid
+  supplier_id       String?             @db.Uuid
+  purchase_number   String              @db.VarChar(50)
+  purchase_date     DateTime?           @default(now()) @db.Timestamptz(6)
+  subtotal          Decimal?            @default(0) @db.Decimal(14, 2)
+  discount_amount   Decimal?            @default(0) @db.Decimal(14, 2)
+  taxable_amount    Decimal?            @default(0) @db.Decimal(14, 2)
+  cgst_amount       Decimal?            @default(0) @db.Decimal(14, 2)
+  sgst_amount       Decimal?            @default(0) @db.Decimal(14, 2)
+  igst_amount       Decimal?            @default(0) @db.Decimal(14, 2)
+  round_off         Decimal?            @default(0) @db.Decimal(14, 2)
+  grand_total       Decimal?            @default(0) @db.Decimal(14, 2)
+  paid_amount       Decimal?            @default(0) @db.Decimal(14, 2)
+  balance_amount    Decimal?            @default(0) @db.Decimal(14, 2)
+  notes             String?
+  created_by        String?             @db.Uuid
+  created_at        DateTime?           @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime?           @default(now()) @db.Timestamptz(6)
+  purchase_items    purchase_items[]
+  purchase_payments purchase_payments[]
+  businesses        businesses          @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users             users?              @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  suppliers         suppliers?          @relation(fields: [supplier_id], references: [id], onUpdate: NoAction)
+  supplier_payments supplier_payments[]
+
+  @@unique([business_id, purchase_number])
+  @@index([business_id], map: "idx_purchases_business")
+  @@index([purchase_date], map: "idx_purchases_date")
+  @@index([supplier_id], map: "idx_purchases_supplier")
+}
+
+model quotation_items {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quotation_id     String            @db.Uuid
+  product_id       String?           @db.Uuid
+  variant_id       String?           @db.Uuid
+  product_name     String            @db.VarChar(200)
+  quantity         Decimal           @db.Decimal(14, 3)
+  unit_price       Decimal           @db.Decimal(14, 2)
+  discount_amount  Decimal?          @default(0) @db.Decimal(14, 2)
+  gst_percentage   Decimal?          @default(0) @db.Decimal(5, 2)
+  total_amount     Decimal?          @default(0) @db.Decimal(14, 2)
+  products         products?         @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+  quotations       quotations        @relation(fields: [quotation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  product_variants product_variants? @relation(fields: [variant_id], references: [id], onUpdate: NoAction)
+}
+
+model quotations {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id      String            @db.Uuid
+  customer_id      String?           @db.Uuid
+  quotation_number String            @db.VarChar(50)
+  quotation_date   DateTime?         @default(now()) @db.Timestamptz(6)
+  valid_until      DateTime?         @db.Date
+  subtotal         Decimal?          @default(0) @db.Decimal(14, 2)
+  discount_amount  Decimal?          @default(0) @db.Decimal(14, 2)
+  tax_amount       Decimal?          @default(0) @db.Decimal(14, 2)
+  grand_total      Decimal?          @default(0) @db.Decimal(14, 2)
+  notes            String?
+  created_by       String?           @db.Uuid
+  created_at       DateTime?         @default(now()) @db.Timestamptz(6)
+  quotation_items  quotation_items[]
+  businesses       businesses        @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users            users?            @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  customers        customers?        @relation(fields: [customer_id], references: [id], onUpdate: NoAction)
+
+  @@unique([business_id, quotation_number])
+}
+
+model sale_items {
+  id                  String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sale_id             String            @db.Uuid
+  product_id          String            @db.Uuid
+  variant_id          String?           @db.Uuid
+  product_name        String            @db.VarChar(200)
+  sku                 String?           @db.VarChar(100)
+  quantity            Decimal           @db.Decimal(14, 3)
+  unit_price          Decimal           @db.Decimal(14, 2)
+  discount_percentage Decimal?          @default(0) @db.Decimal(5, 2)
+  discount_amount     Decimal?          @default(0) @db.Decimal(14, 2)
+  gst_percentage      Decimal?          @default(0) @db.Decimal(5, 2)
+  taxable_amount      Decimal?          @default(0) @db.Decimal(14, 2)
+  cgst_amount         Decimal?          @default(0) @db.Decimal(14, 2)
+  sgst_amount         Decimal?          @default(0) @db.Decimal(14, 2)
+  igst_amount         Decimal?          @default(0) @db.Decimal(14, 2)
+  total_amount        Decimal?          @default(0) @db.Decimal(14, 2)
+  created_at          DateTime?         @default(now()) @db.Timestamptz(6)
+  products            products          @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+  sales               sales             @relation(fields: [sale_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  product_variants    product_variants? @relation(fields: [variant_id], references: [id], onUpdate: NoAction)
+
+  @@index([product_id], map: "idx_sale_items_product")
+  @@index([sale_id], map: "idx_sale_items_sale")
+}
+
+model sale_payments {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sale_id          String         @db.Uuid
+  payment_method   payment_method
+  amount           Decimal        @db.Decimal(14, 2)
+  payment_date     DateTime?      @default(now()) @db.Timestamptz(6)
+  reference_number String?        @db.VarChar(100)
+  notes            String?
+  created_by       String?        @db.Uuid
+  users            users?         @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  sales            sales          @relation(fields: [sale_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model sales {
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id       String              @db.Uuid
+  customer_id       String?             @db.Uuid
+  invoice_number    String              @db.VarChar(50)
+  invoice_type      invoice_type        @default(SALE)
+  status            invoice_status      @default(DRAFT)
+  invoice_date      DateTime?           @default(now()) @db.Timestamptz(6)
+  subtotal          Decimal?            @default(0) @db.Decimal(14, 2)
+  discount_amount   Decimal?            @default(0) @db.Decimal(14, 2)
+  taxable_amount    Decimal?            @default(0) @db.Decimal(14, 2)
+  cgst_amount       Decimal?            @default(0) @db.Decimal(14, 2)
+  sgst_amount       Decimal?            @default(0) @db.Decimal(14, 2)
+  igst_amount       Decimal?            @default(0) @db.Decimal(14, 2)
+  round_off         Decimal?            @default(0) @db.Decimal(14, 2)
+  grand_total       Decimal?            @default(0) @db.Decimal(14, 2)
+  paid_amount       Decimal?            @default(0) @db.Decimal(14, 2)
+  balance_amount    Decimal?            @default(0) @db.Decimal(14, 2)
+  notes             String?
+  created_by        String?             @db.Uuid
+  created_at        DateTime?           @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime?           @default(now()) @db.Timestamptz(6)
+  customer_payments customer_payments[]
+  sale_items        sale_items[]
+  sale_payments     sale_payments[]
+  businesses        businesses          @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users             users?              @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  customers         customers?          @relation(fields: [customer_id], references: [id], onUpdate: NoAction)
+
+  @@unique([business_id, invoice_number])
+  @@index([business_id], map: "idx_sales_business")
+  @@index([business_id, invoice_date], map: "idx_sales_biz_date")
+  @@index([business_id, status], map: "idx_sales_biz_status")
+  @@index([customer_id], map: "idx_sales_customer")
+  @@index([invoice_date], map: "idx_sales_date")
+}
+
+model sizes {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id      String             @db.Uuid
+  name             String             @db.VarChar(50)
+  sort_order       Int?               @default(0)
+  created_at       DateTime?          @default(now()) @db.Timestamptz(6)
+  product_variants product_variants[]
+  businesses       businesses         @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([business_id, name])
+}
+
+model supplier_payments {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id      String         @db.Uuid
+  supplier_id      String         @db.Uuid
+  purchase_id      String?        @db.Uuid
+  amount           Decimal        @db.Decimal(14, 2)
+  payment_method   payment_method
+  payment_date     DateTime?      @default(now()) @db.Timestamptz(6)
+  reference_number String?        @db.VarChar(100)
+  notes            String?
+  created_by       String?        @db.Uuid
+  businesses       businesses     @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users            users?         @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  purchases        purchases?     @relation(fields: [purchase_id], references: [id], onUpdate: NoAction)
+  suppliers        suppliers      @relation(fields: [supplier_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([supplier_id], map: "idx_supplier_payments_supplier")
+}
+
+model suppliers {
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id       String              @db.Uuid
+  supplier_code     String?             @db.VarChar(50)
+  name              String              @db.VarChar(200)
+  phone             String?             @db.VarChar(20)
+  email             String?             @db.VarChar(150)
+  address           String?
+  city              String?             @db.VarChar(100)
+  state             String?             @db.VarChar(100)
+  pincode           String?             @db.VarChar(10)
+  gst_number        String?             @db.VarChar(20)
+  opening_balance   Decimal?            @default(0) @db.Decimal(14, 2)
+  current_balance   Decimal?            @default(0) @db.Decimal(14, 2)
+  is_active         Boolean?            @default(true)
+  created_at        DateTime?           @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime?           @default(now()) @db.Timestamptz(6)
+  purchases         purchases[]
+  supplier_payments supplier_payments[]
+  businesses        businesses          @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([business_id, supplier_code])
+  @@index([business_id], map: "idx_suppliers_business")
+}
+
+enum business_type {
+  RETAIL
+  WHOLESALE
+  GARMENT
+  TEXTILE
+  RETAIL_WHOLESALE
+  GARMENT_TEXTILE
+}
+
+enum customer_type {
+  RETAIL
+  WHOLESALE
+  DEALER
+  BUSINESS
+  PURCHASE
+}
+
+enum invoice_status {
+  DRAFT
+  CONFIRMED
+  CANCELLED
+}
+
+enum invoice_type {
+  SALE
+  RETURN
+  ESTIMATE
+  QUOTATION
+  PROFORMA
+}
+
+enum payment_method {
+  CASH
+  UPI
+  CARD
+  BANK_TRANSFER
+  CHEQUE
+  CREDIT
+}
+
+enum stock_transaction_type {
+  OPENING
+  PURCHASE
+  PURCHASE_RETURN
+  SALE
+  SALE_RETURN
+  ADJUSTMENT_IN
+  ADJUSTMENT_OUT
+  DAMAGE
+  TRANSFER_IN
+  TRANSFER_OUT
+}
+
+enum unit_type {
+  PCS
+  DOZEN
+  BOX
+  BUNDLE
+  METER
+  KG
+  GRAM
+  ROLL
+  SET
+}
+
+enum user_role {
+  ADMIN
+  MANAGER
+  BILLING_STAFF
+  STOCK_STAFF
+  ACCOUNTANT
+}
+
+model email_logs {
+  id               String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id      String     @db.Uuid
+  email_type       String     @db.VarChar(50)
+  recipient_email  String     @db.VarChar(150)
+  subject          String     @db.VarChar(255)
+  reference_id     String?    @db.Uuid
+  reference_number String?    @db.VarChar(100)
+  status           String     @default("SENT") @db.VarChar(20)
+  error_message    String?
+  sent_at          DateTime?  @default(now()) @db.Timestamptz(6)
+  created_at       DateTime?  @default(now()) @db.Timestamptz(6)
+  businesses       businesses @relation(fields: [business_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([business_id], map: "idx_email_logs_business")
+  @@index([recipient_email], map: "idx_email_logs_recipient")
+  @@index([reference_id], map: "idx_email_logs_reference")
+}
+
+enum whatsapp_transaction_type {
+  CREDIT
+  CAMPAIGN_RESERVATION
+  CAMPAIGN_CHARGE
+  CAMPAIGN_RESERVATION_RELEASE
+  REFUND
+  ADJUSTMENT
+}
+
+enum whatsapp_message_category {
+  MARKETING
+  UTILITY
+  AUTHENTICATION
+  SERVICE
+}
+
+enum whatsapp_campaign_status {
+  DRAFT
+  READY
+  QUEUED
+  SENDING
+  COMPLETED
+  PARTIALLY_COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum whatsapp_recipient_status {
+  PENDING
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  SKIPPED
+}
+
+model whatsapp_wallets {
+  id                String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id       String     @unique @db.Uuid
+  current_balance   Decimal    @default(0.00) @db.Decimal(14, 2)
+  reserved_balance  Decimal    @default(0.00) @db.Decimal(14, 2)
+  low_balance_alert Decimal    @default(500.00) @db.Decimal(14, 2)
+  created_at        DateTime?  @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime?  @default(now()) @db.Timestamptz(6)
+  businesses        businesses @relation(fields: [business_id], references: [id], onDelete: Cascade)
+}
+
+model whatsapp_wallet_transactions {
+  id              String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id     String                    @db.Uuid
+  type            whatsapp_transaction_type
+  amount          Decimal                   @db.Decimal(14, 2)
+  balance_before  Decimal                   @db.Decimal(14, 2)
+  balance_after   Decimal                   @db.Decimal(14, 2)
+  reserved_before Decimal                   @default(0.00) @db.Decimal(14, 2)
+  reserved_after  Decimal                   @default(0.00) @db.Decimal(14, 2)
+  reference       String?                   @db.VarChar(100)
+  campaign_id     String?                   @db.Uuid
+  created_by      String?                   @db.Uuid
+  description     String?
+  created_at      DateTime?                 @default(now()) @db.Timestamptz(6)
+  businesses      businesses                @relation(fields: [business_id], references: [id], onDelete: Cascade)
+  users           users?                    @relation(fields: [created_by], references: [id])
+
+  @@index([business_id], map: "idx_whatsapp_tx_business")
+}
+
+model whatsapp_rate_configs {
+  id           String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  category     whatsapp_message_category @unique
+  rate_per_msg Decimal                   @db.Decimal(10, 4)
+  currency     String                    @default("INR") @db.VarChar(10)
+  is_active    Boolean                   @default(true)
+  created_at   DateTime?                 @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime?                 @default(now()) @db.Timestamptz(6)
+}
+
+model whatsapp_campaigns {
+  id              String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id     String                         @db.Uuid
+  name            String                         @db.VarChar(200)
+  template_name   String                         @db.VarChar(100)
+  category        whatsapp_message_category      @default(MARKETING)
+  audience_filter Json?
+  total_audience  Int                            @default(0)
+  eligible_count  Int                            @default(0)
+  excluded_count  Int                            @default(0)
+  rate_per_msg    Decimal                        @db.Decimal(10, 4)
+  estimated_cost  Decimal                        @db.Decimal(14, 2)
+  actual_cost     Decimal                        @default(0.00) @db.Decimal(14, 2)
+  reserved_amount Decimal                        @default(0.00) @db.Decimal(14, 2)
+  status          whatsapp_campaign_status       @default(DRAFT)
+  sent_count      Int                            @default(0)
+  delivered_count Int                            @default(0)
+  read_count      Int                            @default(0)
+  failed_count    Int                            @default(0)
+  created_by      String?                        @db.Uuid
+  created_at      DateTime?                      @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime?                      @default(now()) @db.Timestamptz(6)
+  businesses      businesses                     @relation(fields: [business_id], references: [id], onDelete: Cascade)
+  users           users?                         @relation(fields: [created_by], references: [id])
+  recipients      whatsapp_campaign_recipients[]
+
+  @@index([business_id], map: "idx_whatsapp_campaigns_business")
+}
+
+model whatsapp_campaign_recipients {
+  id           String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  campaign_id  String                    @db.Uuid
+  customer_id  String?                   @db.Uuid
+  phone        String                    @db.VarChar(30)
+  status       whatsapp_recipient_status @default(PENDING)
+  message_id   String?                   @db.VarChar(100)
+  error_reason String?
+  sent_at      DateTime?                 @db.Timestamptz(6)
+  delivered_at DateTime?                 @db.Timestamptz(6)
+  read_at      DateTime?                 @db.Timestamptz(6)
+  campaigns    whatsapp_campaigns        @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
+  customers    customers?                @relation(fields: [customer_id], references: [id], onDelete: SetNull)
+
+  @@index([campaign_id], map: "idx_whatsapp_recipients_campaign")
+}
+
+model whatsapp_messages {
+  id              String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id     String                    @db.Uuid
+  customer_id     String?                   @db.Uuid
+  campaign_id     String?                   @db.Uuid
+  recipient_phone String                    @db.VarChar(30)
+  category        whatsapp_message_category @default(UTILITY)
+  template_name   String?                   @db.VarChar(100)
+  provider_msg_id String?                   @db.VarChar(100)
+  status          whatsapp_recipient_status @default(PENDING)
+  cost            Decimal                   @default(0.00) @db.Decimal(10, 4)
+  error_message   String?
+  idempotency_key String?                   @unique @db.VarChar(150)
+  product_id      String?                   @db.Uuid
+  invoice_id      String?                   @db.Uuid
+  order_id        String?                   @db.Uuid
+  subscription_id String?                   @db.Uuid
+  metadata        Json?
+  sent_at         DateTime?                 @default(now()) @db.Timestamptz(6)
+  created_at      DateTime?                 @default(now()) @db.Timestamptz(6)
+  businesses      businesses                @relation(fields: [business_id], references: [id], onDelete: Cascade)
+  customers       customers?                @relation(fields: [customer_id], references: [id], onDelete: SetNull)
+
+  @@index([business_id], map: "idx_whatsapp_msgs_business")
+  @@index([template_name], map: "idx_whatsapp_msgs_template")
+  @@index([idempotency_key], map: "idx_whatsapp_msgs_idempotency")
+}
+
+enum whatsapp_connection_status {
+  CONNECTED
+  DISCONNECTED
+  EXPIRED
+  ERROR
+}
+
+model whatsapp_accounts {
+  id                   String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id          String                     @unique @db.Uuid
+  waba_id              String?                    @db.VarChar(100)
+  phone_number_id      String                     @unique @db.VarChar(100)
+  display_phone_number String                     @db.VarChar(30)
+  verified_name        String                     @db.VarChar(200)
+  encrypted_token      String                     @db.Text
+  status               whatsapp_connection_status @default(CONNECTED)
+  connected_at         DateTime?                  @default(now()) @db.Timestamptz(6)
+  last_verified_at     DateTime?                  @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime?                  @default(now()) @db.Timestamptz(6)
+  businesses           businesses                 @relation(fields: [business_id], references: [id], onDelete: Cascade)
+}
+
+model crm_follow_ups {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id      String    @db.Uuid
+  customer_id      String    @db.Uuid
+  assigned_to      String?   @db.Uuid
+  type             String    @default("Call") @db.VarChar(50)
+  reason           String    @db.VarChar(255)
+  notes            String?   @db.Text
+  due_date         DateTime  @db.Timestamptz(6)
+  priority         String    @default("MEDIUM") @db.VarChar(20)
+  status           String    @default("PENDING") @db.VarChar(20)
+  completed_at     DateTime? @db.Timestamptz(6)
+  completed_by     String?   @db.Uuid
+  completion_notes String?   @db.Text
+  created_by       String?   @db.Uuid
+  created_at       DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime? @default(now()) @db.Timestamptz(6)
+
+  businesses    businesses @relation(fields: [business_id], references: [id], onDelete: Cascade)
+  customers     customers  @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  assigned_user users?     @relation("crm_followups_assigned", fields: [assigned_to], references: [id])
+  creator       users?     @relation("crm_followups_creator", fields: [created_by], references: [id])
+
+  @@index([business_id], map: "idx_crm_followups_business")
+  @@index([customer_id], map: "idx_crm_followups_customer")
+  @@index([due_date], map: "idx_crm_followups_due")
+  @@index([status], map: "idx_crm_followups_status")
+}
+
+model crm_customer_notes {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id String    @db.Uuid
+  customer_id String    @db.Uuid
+  note        String    @db.Text
+  created_by  String?   @db.Uuid
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime? @default(now()) @db.Timestamptz(6)
+
+  businesses businesses @relation(fields: [business_id], references: [id], onDelete: Cascade)
+  customers  customers  @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  creator    users?     @relation(fields: [created_by], references: [id])
+
+  @@index([business_id], map: "idx_crm_notes_business")
+  @@index([customer_id], map: "idx_crm_notes_customer")
+}
+
+model crm_saved_segments {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id       String    @db.Uuid
+  name              String    @db.VarChar(150)
+  description       String?   @db.Text
+  filter_definition Json
+  created_by        String?   @db.Uuid
+  created_at        DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime? @default(now()) @db.Timestamptz(6)
+
+  businesses businesses @relation(fields: [business_id], references: [id], onDelete: Cascade)
+  creator    users?     @relation(fields: [created_by], references: [id])
+
+  @@index([business_id], map: "idx_crm_segments_business")
+}
+
+// ==========================================
+// VEXA ADMIN PLATFORM ENUMS & MODELS
+// ==========================================
+
+enum self_shopping_status {
+  TRIALING
+  LIFETIME_ACTIVE
+  EXPIRED
+  PAYMENT_PENDING
+  PAYMENT_FAILED
+}
+
+enum subscription_status {
+  TRIALING
+  ACTIVE
+  PENDING
+  PAYMENT_PENDING
+  PAST_DUE
+  PAYMENT_FAILED
+  CANCELLED
+  EXPIRED
+  SUSPENDED
+}
+
+enum license_status {
+  PENDING_ACTIVATION
+  ACTIVE
+  EXPIRED
+  SUSPENDED
+  CANCELLED
+}
+
+enum license_type {
+  MONTHLY_SUBSCRIPTION
+  ONE_TIME_LICENSE
+}
+
+enum platform_payment_type {
+  MONTHLY_SUBSCRIPTION
+  ONE_TIME_LICENSE
+}
+
+enum platform_payment_method {
+  CASH
+  CHEQUE
+  ONLINE
+  UPI
+  CARD
+  BANK_TRANSFER
+}
+
+enum platform_payment_status {
+  PENDING
+  PENDING_VERIFICATION
+  CHEQUE_RECEIVED
+  VERIFIED
+  CLEARED
+  FAILED
+  REJECTED
+  BOUNCED
+  REFUNDED
+  CANCELLED
+}
+
+enum admin_role {
+  SUPER_ADMIN
+  BILLING_ADMIN
+  SUPPORT_ADMIN
+  FINANCE_ADMIN
+}
+
+enum plan_billing_type {
+  MONTHLY
+  ONE_TIME
+}
+
+model subscription_plans {
+  id             String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  plan_name      String            @db.VarChar(150)
+  billing_type   plan_billing_type @default(MONTHLY)
+  price          Decimal           @db.Decimal(14, 2)
+  currency       String            @default("INR") @db.VarChar(10)
+  tax_percentage Decimal?          @default(18.00) @db.Decimal(5, 2)
+  billing_cycle  String            @default("Monthly") @db.VarChar(50)
+  description    String?           @db.Text
+  is_active      Boolean           @default(true)
+  created_at     DateTime?         @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime?         @default(now()) @db.Timestamptz(6)
+
+  platform_subscriptions platform_subscriptions[]
+  platform_licenses      platform_licenses[]
+}
+
+model platform_subscriptions {
+  id                            String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id                    String              @db.VarChar(50)
+  business_id                   String              @db.Uuid
+  plan_id                       String?             @db.Uuid
+  provider                      String              @default("CASHFREE") @db.VarChar(50)
+  provider_subscription_id      String?             @db.VarChar(100)
+  status                        subscription_status @default(PENDING)
+  amount                        Decimal             @db.Decimal(14, 2)
+  currency                      String              @default("INR") @db.VarChar(10)
+  billing_interval              String              @default("MONTHLY") @db.VarChar(20)
+  current_period_start          DateTime?           @db.Timestamptz(6)
+  current_period_end            DateTime?           @db.Timestamptz(6)
+  next_billing_date             DateTime?           @db.Timestamptz(6)
+  mandate_status                String?             @default("PENDING") @db.VarChar(50)
+  auth_reference                String?             @db.VarChar(150)
+  auth_link                     String?             @db.Text
+  auto_renew                    Boolean             @default(true)
+  cancel_at_period_end          Boolean             @default(false)
+  cancellation_requested_at     DateTime?           @db.Timestamptz(6)
+  cancelled_at                  DateTime?           @db.Timestamptz(6)
+  effective_cancellation_date   DateTime?           @db.Timestamptz(6)
+  grace_period_deadline         DateTime?           @db.Timestamptz(6)
+  last_successful_payment       DateTime?           @db.Timestamptz(6)
+  last_failed_payment           DateTime?           @db.Timestamptz(6)
+  last_renewal_reminder_sent_at DateTime?           @db.Timestamptz(6)
+  trial_start_at                DateTime?           @db.Timestamptz(6)
+  trial_end_at                  DateTime?           @db.Timestamptz(6)
+  trial_reminded_3d_at          DateTime?           @db.Timestamptz(6)
+  trial_reminded_1d_at          DateTime?           @db.Timestamptz(6)
+  trial_expired_email_at        DateTime?           @db.Timestamptz(6)
+  created_at                    DateTime?           @default(now()) @db.Timestamptz(6)
+  updated_at                    DateTime?           @default(now()) @db.Timestamptz(6)
+
+  businesses           businesses             @relation(fields: [business_id], references: [id], onDelete: Cascade)
+  subscription_plans   subscription_plans?    @relation(fields: [plan_id], references: [id])
+  payment_transactions payment_transactions[]
+
+  @@index([business_id], map: "idx_platform_subs_business")
+  @@index([company_id], map: "idx_platform_subs_company")
+  @@index([provider_subscription_id], map: "idx_platform_subs_provider_id")
+}
+
+model platform_licenses {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  license_key      String         @unique @db.VarChar(100)
+  company_id       String         @db.VarChar(50)
+  business_id      String         @db.Uuid
+  license_type     license_type   @default(MONTHLY_SUBSCRIPTION)
+  plan_id          String?        @db.Uuid
+  payment_id       String?        @db.Uuid
+  status           license_status @default(PENDING_ACTIVATION)
+  duration_type    String         @default("LIFETIME") @db.VarChar(50)
+  duration_days    Int?
+  activated_at     DateTime?      @db.Timestamptz(6)
+  expiry_date      DateTime?      @db.Timestamptz(6)
+  last_verified_at DateTime?      @db.Timestamptz(6)
+  suspended_at     DateTime?      @db.Timestamptz(6)
+  cancelled_at     DateTime?      @db.Timestamptz(6)
+  created_at       DateTime?      @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime?      @default(now()) @db.Timestamptz(6)
+
+  businesses           businesses             @relation(fields: [business_id], references: [id], onDelete: Cascade)
+  subscription_plans   subscription_plans?    @relation(fields: [plan_id], references: [id])
+  payment_transactions payment_transactions[]
+
+  @@index([business_id], map: "idx_platform_lic_business")
+  @@index([company_id], map: "idx_platform_lic_company")
+}
+
+model payment_transactions {
+  id                       String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id               String                  @db.VarChar(50)
+  business_id              String                  @db.Uuid
+  subscription_id          String?                 @db.Uuid
+  license_id               String?                 @db.Uuid
+  payment_type             platform_payment_type
+  payment_method           platform_payment_method
+  amount                   Decimal                 @db.Decimal(14, 2)
+  currency                 String                  @default("INR") @db.VarChar(10)
+  status                   platform_payment_status @default(PENDING)
+  reference_number         String?                 @db.VarChar(100)
+  provider                 String?                 @db.VarChar(50)
+  provider_order_id        String?                 @db.VarChar(100)
+  provider_payment_id      String?                 @db.VarChar(100)
+  provider_subscription_id String?                 @db.VarChar(100)
+  idempotency_key          String?                 @unique @db.VarChar(150)
+  cheque_number            String?                 @db.VarChar(100)
+  bank_name                String?                 @db.VarChar(150)
+  cheque_date              DateTime?               @db.Date
+  payment_proof            String?                 @db.Text
+  received_at              DateTime?               @default(now()) @db.Timestamptz(6)
+  verified_at              DateTime?               @db.Timestamptz(6)
+  verified_by              String?                 @db.VarChar(150)
+  notes                    String?                 @db.Text
+  transaction_type         String?                 @default("NEW_SUBSCRIPTION") @db.VarChar(50)
+  created_at               DateTime?               @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime?               @default(now()) @db.Timestamptz(6)
+
+  businesses             businesses              @relation(fields: [business_id], references: [id], onDelete: Cascade)
+  platform_subscriptions platform_subscriptions? @relation(fields: [subscription_id], references: [id])
+  platform_licenses      platform_licenses?      @relation(fields: [license_id], references: [id])
+  payment_receipts       payment_receipts[]
+
+  @@index([business_id], map: "idx_pay_tx_business")
+  @@index([company_id], map: "idx_pay_tx_company")
+  @@index([provider_payment_id], map: "idx_pay_tx_provider_pay_id")
+  @@index([transaction_type], map: "idx_pay_tx_transaction_type")
+}
+
+model payment_receipts {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  receipt_number String    @unique @db.VarChar(100)
+  company_id     String    @db.VarChar(50)
+  business_id    String    @db.Uuid
+  payment_id     String    @db.Uuid
+  amount         Decimal   @db.Decimal(14, 2)
+  payment_date   DateTime  @db.Timestamptz(6)
+  status         String    @default("ISSUED") @db.VarChar(50)
+  pdf_url        String?   @db.Text
+  created_at     DateTime? @default(now()) @db.Timestamptz(6)
+
+  businesses           businesses           @relation(fields: [business_id], references: [id], onDelete: Cascade)
+  payment_transactions payment_transactions @relation(fields: [payment_id], references: [id], onDelete: Cascade)
+
+  @@index([business_id], map: "idx_receipt_business")
+}
+
+model webhook_events {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  event_id      String    @unique @db.VarChar(150)
+  provider      String    @default("RAZORPAY") @db.VarChar(50)
+  event_type    String    @db.VarChar(100)
+  payload       Json
+  status        String    @default("PROCESSED") @db.VarChar(50)
+  processed_at  DateTime? @default(now()) @db.Timestamptz(6)
+  error_message String?   @db.Text
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+}
+
+model admin_users {
+  id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String     @db.VarChar(150)
+  email         String     @unique @db.VarChar(150)
+  phone         String?    @db.VarChar(20)
+  password_hash String
+  role          admin_role @default(SUPER_ADMIN)
+  is_active     Boolean    @default(true)
+  last_login_at DateTime?  @db.Timestamptz(6)
+  created_at    DateTime?  @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime?  @default(now()) @db.Timestamptz(6)
+
+  assigned_tickets support_tickets[] @relation("ticket_assignee")
+}
+
+model custom_roles {
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id String     @db.Uuid
+  name        String     @db.VarChar(100)
+  slug        String     @db.VarChar(100)
+  description String?
+  permissions Json       @default("[]")
+  is_active   Boolean    @default(true)
+  created_at  DateTime?  @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime?  @default(now()) @db.Timestamptz(6)
+  businesses  businesses @relation(fields: [business_id], references: [id], onDelete: Cascade)
+  users       users[]
+
+  @@unique([business_id, slug], map: "unq_business_role_slug")
+  @@index([business_id], map: "idx_custom_roles_business")
+  @@index([slug], map: "idx_custom_roles_slug")
+}
+
+// ==========================================
+// CUSTOMER SELF-SHOPPING PORTAL ORDERS
+// ==========================================
+
+enum customer_order_status {
+  PENDING_REVIEW
+  ACCEPTED
+  REJECTED
+  READY_FOR_BILLING
+  BILLED
+  CANCELLED
+}
+
+model customer_orders {
+  id               String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  business_id      String                @db.Uuid
+  order_number     String                @db.VarChar(50)
+  status           customer_order_status @default(PENDING_REVIEW)
+  session_token    String?               @db.VarChar(100)
+  idempotency_key  String?               @unique @db.VarChar(100)
+  customer_name    String?               @db.VarChar(150)
+  customer_phone   String?               @db.VarChar(30)
+  customer_address String?               @db.Text
+  notes            String?               @db.Text
+  rejection_reason String?               @db.Text
+  adjustment_notes String?               @db.Text
+  estimated_total  Decimal               @default(0.00) @db.Decimal(14, 2)
+  customer_id      String?               @db.Uuid
+  sale_id          String?               @db.Uuid
+  reviewed_by      String?               @db.Uuid
+  reviewed_at      DateTime?             @db.Timestamptz(6)
+  created_at       DateTime?             @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime?             @default(now()) @db.Timestamptz(6)
+
+  businesses           businesses             @relation(fields: [business_id], references: [id], onDelete: Cascade)
+  customers            customers?             @relation(fields: [customer_id], references: [id], onUpdate: NoAction)
+  customer_order_items customer_order_items[]
+
+  @@unique([business_id, order_number])
+  @@index([business_id], map: "idx_cust_order_business")
+  @@index([business_id, status, created_at], map: "idx_cust_order_biz_status_date")
+  @@index([customer_id], map: "idx_cust_order_customer")
+  @@index([status], map: "idx_cust_order_status")
+  @@index([created_at], map: "idx_cust_order_created_at")
+}
+
+model customer_order_items {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_id       String    @db.Uuid
+  product_id     String    @db.Uuid
+  variant_id     String?   @db.Uuid
+  product_name   String    @db.VarChar(200)
+  variant_name   String?   @db.VarChar(200)
+  sku            String?   @db.VarChar(100)
+  barcode        String?   @db.VarChar(100)
+  color          String?   @db.VarChar(100)
+  size           String?   @db.VarChar(50)
+  quantity       Decimal   @db.Decimal(14, 3)
+  unit_price     Decimal   @db.Decimal(14, 2)
+  line_total     Decimal   @db.Decimal(14, 2)
+  is_removed     Boolean   @default(false)
+  removal_reason String?   @db.VarChar(255)
+  created_at     DateTime? @default(now()) @db.Timestamptz(6)
+
+  customer_orders customer_orders @relation(fields: [order_id], references: [id], onDelete: Cascade)
+
+  @@index([order_id], map: "idx_cust_order_items_order")
+  @@index([product_id], map: "idx_cust_order_items_product")
+}
+
+// ============================================================================
+// HELP CENTER & SUPPORT TICKET MANAGEMENT SYSTEM MODELS
+// ============================================================================
+
+enum ticket_priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ticket_status {
+  OPEN
+  IN_PROGRESS
+  WAITING_FOR_CUSTOMER
+  RESOLVED
+  CLOSED
+}
+
+enum ticket_category {
+  LOGIN_AUTHENTICATION
+  DASHBOARD
+  SALES_INVOICES
+  PRODUCTS_INVENTORY
+  PURCHASES_SUPPLIERS
+  FINANCE_PAYMENTS
+  QUOTATIONS
+  CUSTOMER_PORTAL
+  WHATSAPP_INTEGRATION
+  SUBSCRIPTION_BILLING
+  TECHNICAL_ERROR
+  FEATURE_REQUEST
+  OTHER
+}
+
+model support_tickets {
+  id                   String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ticket_number        String          @unique @db.VarChar(50)
+  business_id          String          @db.Uuid
+  user_id              String          @db.Uuid
+  subject              String          @db.VarChar(255)
+  category             ticket_category @default(OTHER)
+  priority             ticket_priority @default(MEDIUM)
+  status               ticket_status   @default(OPEN)
+  affected_module      String?         @db.VarChar(100)
+  description          String          @db.Text
+  app_version          String?         @default("1.0.0") @db.VarChar(50)
+  current_route        String?         @db.VarChar(255)
+  assigned_to_admin_id String?         @db.Uuid
+  resolved_at          DateTime?       @db.Timestamptz(6)
+  closed_at            DateTime?       @db.Timestamptz(6)
+  created_at           DateTime?       @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime?       @default(now()) @db.Timestamptz(6)
+
+  businesses     businesses                   @relation(fields: [business_id], references: [id], onDelete: Cascade)
+  users          users                        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  assigned_admin admin_users?                 @relation("ticket_assignee", fields: [assigned_to_admin_id], references: [id], onUpdate: NoAction)
+  attachments    support_ticket_attachments[]
+  messages       support_ticket_messages[]
+  activities     support_ticket_activities[]
+  notifications  support_notifications[]
+
+  @@index([business_id], map: "idx_support_tickets_business")
+  @@index([user_id], map: "idx_support_tickets_user")
+  @@index([status], map: "idx_support_tickets_status")
+  @@index([priority], map: "idx_support_tickets_priority")
+  @@index([category], map: "idx_support_tickets_category")
+  @@index([created_at], map: "idx_support_tickets_created_at")
+}
+
+model support_ticket_attachments {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ticket_id  String    @db.Uuid
+  message_id String?   @db.Uuid
+  file_name  String    @db.VarChar(255)
+  file_type  String    @db.VarChar(100)
+  file_size  Int
+  file_path  String    @db.VarChar(500)
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  support_tickets support_tickets @relation(fields: [ticket_id], references: [id], onDelete: Cascade)
+
+  @@index([ticket_id], map: "idx_support_attach_ticket")
+}
+
+model support_ticket_messages {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ticket_id        String    @db.Uuid
+  sender_type      String    @default("USER") @db.VarChar(30) // USER, ADMIN, SYSTEM
+  user_id          String?   @db.Uuid
+  admin_id         String?   @db.Uuid
+  sender_name      String    @db.VarChar(150)
+  message          String    @db.Text
+  is_internal_note Boolean   @default(false)
+  created_at       DateTime? @default(now()) @db.Timestamptz(6)
+
+  support_tickets support_tickets @relation(fields: [ticket_id], references: [id], onDelete: Cascade)
+  users           users?          @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([ticket_id], map: "idx_support_msg_ticket")
+  @@index([is_internal_note], map: "idx_support_msg_internal")
+}
+
+model support_ticket_activities {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ticket_id  String    @db.Uuid
+  actor_type String    @db.VarChar(30) // USER, ADMIN, SYSTEM
+  actor_name String    @db.VarChar(150)
+  action     String    @db.VarChar(100) // STATUS_CHANGE, ASSIGNMENT, PRIORITY_CHANGE, NOTE_ADDED, REPLY_SENT
+  old_value  String?   @db.Text
+  new_value  String?   @db.Text
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  support_tickets support_tickets @relation(fields: [ticket_id], references: [id], onDelete: Cascade)
+
+  @@index([ticket_id], map: "idx_support_act_ticket")
+}
+
+model support_notifications {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ticket_id       String    @db.Uuid
+  recipient_email String    @db.VarChar(150)
+  recipient_type  String    @db.VarChar(50) // VEXA_TECH, COMPANY_ADMIN, SUBSCRIPTION_ADMIN, TICKET_OWNER
+  subject         String    @db.VarChar(255)
+  status          String    @default("PENDING") @db.VarChar(30) // PENDING, SENT, FAILED
+  error_message   String?   @db.Text
+  sent_at         DateTime? @db.Timestamptz(6)
+  retry_count     Int       @default(0)
+  created_at      DateTime? @default(now()) @db.Timestamptz(6)
+
+  support_tickets support_tickets @relation(fields: [ticket_id], references: [id], onDelete: Cascade)
+
+  @@index([ticket_id], map: "idx_support_notif_ticket")
+  @@index([status], map: "idx_support_notif_status")
+}
+
+model help_categories {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String    @unique @db.VarChar(150)
+  slug        String    @unique @db.VarChar(150)
+  icon        String?   @default("BookOpen") @db.VarChar(50)
+  description String?   @db.Text
+  name_ta     String?   @db.VarChar(150)
+  description_ta String? @db.Text
+  sort_order  Int       @default(0)
+  is_active   Boolean   @default(true)
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime? @default(now()) @db.Timestamptz(6)
+
+  articles help_articles[]
+
+  @@index([slug], map: "idx_help_cat_slug")
+  @@index([sort_order], map: "idx_help_cat_sort")
+}
+
+model help_articles {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  category_id         String    @db.Uuid
+  title               String    @db.VarChar(255)
+  slug                String    @unique @db.VarChar(255)
+  short_description   String    @db.Text
+  content_markdown    String    @db.Text
+  cover_image         String?   @db.VarChar(500)
+  steps               Json      @default("[]") // Array of { stepNumber, title, description, image, caption }
+  important_notes     Json      @default("[]") // Array of string callouts
+  related_article_ids Json      @default("[]") // Array of article IDs or slugs
+  title_ta            String?   @db.VarChar(255)
+  short_description_ta String?  @db.Text
+  content_markdown_ta  String?  @db.Text
+  steps_ta            Json?     @default("[]")
+  important_notes_ta  Json?     @default("[]")
+  search_keywords     String?   @db.Text
+  is_published        Boolean   @default(true)
+  is_featured         Boolean   @default(false)
+  view_count          Int       @default(0)
+  helpful_count       Int       @default(0)
+  unhelpful_count     Int       @default(0)
+  created_at          DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime? @default(now()) @db.Timestamptz(6)
+
+  category help_categories       @relation(fields: [category_id], references: [id], onDelete: Cascade)
+  images   help_article_images[]
+
+  @@index([category_id], map: "idx_help_art_category")
+  @@index([slug], map: "idx_help_art_slug")
+  @@index([is_published], map: "idx_help_art_published")
+  @@index([is_featured], map: "idx_help_art_featured")
+}
+
+model help_article_images {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  article_id String    @db.Uuid
+  caption    String?   @db.VarChar(255)
+  image_url  String    @db.VarChar(500)
+  sort_order Int       @default(0)
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  article help_articles @relation(fields: [article_id], references: [id], onDelete: Cascade)
+
+  @@index([article_id], map: "idx_help_img_article")
+}
+
+model faqs {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  category        String?   @default("General") @db.VarChar(100)
+  question        String    @db.VarChar(255)
+  answer          String    @db.Text
+  question_ta     String?   @db.VarChar(255)
+  answer_ta       String?   @db.Text
+  slug            String?   @unique @db.VarChar(255)
+  helpful_count   Int       @default(0)
+  unhelpful_count Int       @default(0)
+  sort_order      Int       @default(0)
+  is_published    Boolean   @default(true)
+  created_at      DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([category], map: "idx_faqs_category")
+  @@index([is_published], map: "idx_faqs_published")
+  @@index([slug], map: "idx_faqs_slug")
+}
+
+model sales_enquiries {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  enquiry_number      String    @unique @db.VarChar(50)
+  contact_name        String    @db.VarChar(150)
+  business_name       String    @db.VarChar(200)
+  email               String    @db.VarChar(150)
+  mobile              String    @db.VarChar(50)
+  business_type       String?   @db.VarChar(100)
+  interested_plan     String    @default("Lifetime – ₹59,999") @db.VarChar(100)
+  current_plan        String?   @db.VarChar(100)
+  preferred_time      String?   @db.VarChar(100)
+  message             String    @db.Text
+  source              String    @default("VEXA Invoice Lifetime Pricing") @db.VarChar(150)
+  status              String    @default("NEW") @db.VarChar(50)
+  business_id         String?   @db.Uuid
+  company_id          String?   @db.VarChar(50)
+  user_id             String?   @db.Uuid
+  assigned_admin      String?   @db.VarChar(150)
+  contact_date        DateTime? @db.Timestamptz(6)
+  follow_up_date      DateTime? @db.Timestamptz(6)
+  next_action         String?   @db.VarChar(255)
+  email_notified      Boolean   @default(false)
+  email_error         String?   @db.Text
+  razorpay_order_id   String?   @db.VarChar(100)
+  razorpay_payment_id String?   @db.VarChar(100)
+  payment_status      String?   @db.VarChar(50)
+  payment_amount      Decimal?  @db.Decimal(14, 2)
+  converted_at        DateTime? @db.Timestamptz(6)
+  created_at          DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime? @default(now()) @db.Timestamptz(6)
+
+  businesses businesses?           @relation(fields: [business_id], references: [id], onDelete: SetNull)
+  users      users?                @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  notes      sales_enquiry_notes[]
+
+  @@index([enquiry_number], map: "idx_sales_enquiry_num")
+  @@index([business_id], map: "idx_sales_enquiry_biz")
+  @@index([company_id], map: "idx_sales_enquiry_comp")
+  @@index([email], map: "idx_sales_enquiry_email")
+  @@index([mobile], map: "idx_sales_enquiry_mobile")
+  @@index([status], map: "idx_sales_enquiry_status")
+  @@index([created_at], map: "idx_sales_enquiry_created")
+}
+
+model sales_enquiry_notes {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  enquiry_id   String    @db.Uuid
+  note_type    String    @default("INTERNAL_NOTE") @db.VarChar(50)
+  note_text    String    @db.Text
+  author_name  String    @default("Super Admin") @db.VarChar(150)
+  author_email String?   @db.VarChar(150)
+  created_at   DateTime? @default(now()) @db.Timestamptz(6)
+
+  enquiry sales_enquiries @relation(fields: [enquiry_id], references: [id], onDelete: Cascade)
+
+  @@index([enquiry_id], map: "idx_enquiry_notes_enquiry")
+}
+
+
+
+
+
+
