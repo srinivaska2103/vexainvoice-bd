@@ -1224,12 +1224,14 @@ const getPlatformSettings = async () => {
         admin_notification_email: env.SUBSCRIPTION_ADMIN_EMAIL || 'vexatech.connect@gmail.com'
       },
       trial_policy: {
-        duration_days: 7,
+        model: 'PAY_AND_USE',
+        has_free_trial: false,
+        duration_days: 0,
         standard_plan_price: 599.00,
         currency: 'INR',
         grace_period_days: 3,
         auto_deactivation: true,
-        enforcement_model: 'Strict Backend Middleware Guard'
+        enforcement_model: 'Strict Backend Middleware Guard (Pay and Use)'
       },
       security_and_auth: {
         token_algorithm: 'HS256',

@@ -96,11 +96,17 @@ const getPlanTier = (subscription, company, lifetimeLicense) => {
     return 'LIFETIME';
   }
 
+  // Growth plan check: plan name contains GROWTH or amount matches regular Growth (₹999) or test Growth
   if (planName.includes('GROWTH') || amount >= 900) {
     return 'GROWTH';
   }
 
-  // Default monthly subscription or trial
+  // Also check company self_shopping_status explicitly
+  if (company?.self_shopping_status === 'GROWTH_ACTIVE') {
+    return 'GROWTH';
+  }
+
+  // Default monthly subscription is STARTER
   return 'STARTER';
 };
 
@@ -155,40 +161,13 @@ const evaluateSubscriptionAccess = (paramA, paramB, paramC = null) => {
     };
   }
 
-  // If no subscription record exists at all
+  // If no subscription record exists at all (Pay and Use product model)
   if (!subscription) {
-    const isTrialCandidate = company?.subscription_status === 'TRIAL' && company?.created_at;
-    if (isTrialCandidate) {
-      const trialDays = 7;
-      const trialExpiry = new Date(new Date(company.created_at).getTime() + trialDays * 24 * 60 * 60 * 1000);
-      if (now <= trialExpiry) {
-        const msRemaining = trialExpiry.getTime() - now.getTime();
-        const daysRemaining = Math.max(1, Math.ceil(msRemaining / (1000 * 60 * 60 * 24)));
-        return {
-          allowed: true,
-          canAccessApplication: true,
-          canCreateTransactions: true,
-          reason: `7-Day Free Trial is active (${daysRemaining} day(s) remaining).`,
-          status: 'TRIALING',
-          effectiveSubscriptionStatus: 'TRIAL',
-          effectiveLicenseStatus: 'TRIAL',
-          tier: 'TRIAL',
-          features: PLAN_TIERS.GROWTH,
-          gracePeriodActive: false,
-          isTrial: true,
-          trialActive: true,
-          trialDaysRemaining: daysRemaining,
-          daysRemaining,
-          subscription: null
-        };
-      }
-    }
-
     return {
       allowed: false,
       canAccessApplication: false,
       canCreateTransactions: false,
-      reason: 'No active subscription found. Please subscribe to VEXA Invoice Starter (₹599/mo) or Growth (₹999/mo).',
+      reason: 'No active subscription found. VEXA Invoice is a commercial pay-and-use product. Please subscribe to continue.',
       status: 'NO_SUBSCRIPTION',
       effectiveSubscriptionStatus: 'NO_SUBSCRIPTION',
       effectiveLicenseStatus: 'INACTIVE',
@@ -213,52 +192,21 @@ const evaluateSubscriptionAccess = (paramA, paramB, paramC = null) => {
     trial_end_at
   } = subscription;
 
-  // 1. TRIALING Status (7-Day Free Trial)
+  // 1. TRIALING Status: If a legacy trial record is encountered, treat it as expired under the Pay-and-Use model
   if (status === 'TRIALING') {
-    const trialEnd = trial_end_at ? new Date(trial_end_at) : (current_period_end ? new Date(current_period_end) : null);
-    if (!trialEnd || now > trialEnd) {
-      return {
-        allowed: false,
-        canAccessApplication: false,
-        canCreateTransactions: false,
-        reason: 'Your 7-day free trial has expired. Please subscribe to VEXA Invoice to continue.',
-        status: 'EXPIRED',
-        effectiveSubscriptionStatus: 'EXPIRED',
-        effectiveLicenseStatus: 'EXPIRED',
-        tier: 'RESTRICTED',
-        features,
-        gracePeriodActive: false,
-        isTrialExpired: true,
-        trialActive: false,
-        trialEnd,
-        subscription
-      };
-    }
-
-    const msRemaining = trialEnd.getTime() - now.getTime();
-    const daysRemaining = Math.max(1, Math.ceil(msRemaining / (1000 * 60 * 60 * 24)));
-
-    // Determine trial feature tier from trial subscription plan (defaults to STARTER if Starter ₹599 plan)
-    const trialPlanTier = getPlanTier(subscription, company, lifetimeLicense);
-    const trialFeatures = PLAN_TIERS[trialPlanTier] || PLAN_TIERS.STARTER;
-
     return {
-      allowed: true,
-      canAccessApplication: true,
-      canCreateTransactions: true,
-      reason: `7-Day Free Trial is active (${daysRemaining} day(s) remaining).`,
-      status: 'TRIALING',
-      effectiveSubscriptionStatus: 'TRIAL',
-      effectiveLicenseStatus: 'TRIAL',
-      tier: trialPlanTier === 'GROWTH' ? 'GROWTH' : 'STARTER',
-      features: trialFeatures,
+      allowed: false,
+      canAccessApplication: false,
+      canCreateTransactions: false,
+      reason: 'VEXA Invoice is a commercial pay-and-use product. Please activate an active paid subscription to continue.',
+      status: 'EXPIRED',
+      effectiveSubscriptionStatus: 'EXPIRED',
+      effectiveLicenseStatus: 'EXPIRED',
+      tier: 'RESTRICTED',
+      features,
       gracePeriodActive: false,
-      isTrial: true,
-      trialActive: true,
-      trialStart: trial_start_at,
-      trialEnd,
-      daysRemaining,
-      trialDaysRemaining: daysRemaining,
+      isTrialExpired: true,
+      trialActive: false,
       subscription
     };
   }

@@ -30,7 +30,8 @@ module.exports = {
   JWT_SECRET: rawJwtSecret || 'vexa_invoice_secret_jwt_key_2026',
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
   JWT_ALGORITHM: 'HS256',
-  CLIENT_URL: process.env.CLIENT_URL || 'http://localhost:3000',
+  CLIENT_URL: process.env.CLIENT_URL || 'https://app.vexainvoice.vexatech.in',
+  SUPER_ADMIN_URL: process.env.SUPER_ADMIN_URL || 'https://admin.vexainvoice.vexatech.in',
   
   // SMTP Email Settings
   SMTP_HOST: process.env.SMTP_HOST || 'smtpout.secureserver.net',

@@ -70,10 +70,7 @@ const registerBusinessAndAdmin = async (data) => {
     const { generateCompanyId } = require('../utils/companyId.util');
     const companyId = await generateCompanyId(tx);
 
-    const trialStartDate = new Date();
-    const trialEndDate = new Date(trialStartDate.getTime() + 7 * 24 * 60 * 60 * 1000);
-
-    // 1. Create Company / Business with TRIALING subscription status (7-Day Free Trial)
+    // 1. Create Company / Business with PENDING subscription status (Pay and Use model)
     const company = await tx.businesses.create({
       data: {
         company_id: companyId,
@@ -89,10 +86,10 @@ const registerBusinessAndAdmin = async (data) => {
         gst_number: data.gst_number || null,
         pan_number: data.pan_number || null,
         invoice_prefix: data.invoice_prefix || 'INV',
-        subscription_status: 'TRIALING',
-        license_status: 'ACTIVE',
-        trial_start_at: trialStartDate,
-        trial_end_at: trialEndDate,
+        subscription_status: 'PENDING',
+        license_status: 'PENDING_ACTIVATION',
+        trial_start_at: null,
+        trial_end_at: null,
         has_used_trial: true,
         is_active: true
       }
@@ -111,13 +108,13 @@ const registerBusinessAndAdmin = async (data) => {
       }
     });
 
-    // 3. Create initial company platform_subscriptions record in TRIALING state
+    // 3. Create initial company platform_subscriptions record in PENDING state (awaiting payment)
     const defaultPlan = await tx.subscription_plans.findFirst({
       where: { plan_name: 'VEXA Invoice Monthly', is_active: true }
     });
 
     const timestamp = Date.now();
-    const initialSubId = `vexa_trial_${company.company_id || company.id.slice(0, 8)}_${timestamp}`;
+    const initialSubId = `vexa_sub_${company.company_id || company.id.slice(0, 8)}_${timestamp}`;
 
     const createdSub = await tx.platform_subscriptions.create({
       data: {
@@ -126,29 +123,17 @@ const registerBusinessAndAdmin = async (data) => {
         plan_id: defaultPlan ? defaultPlan.id : null,
         provider: 'RAZORPAY',
         provider_subscription_id: initialSubId,
-        status: 'TRIALING',
+        status: 'PENDING',
         amount: defaultPlan ? defaultPlan.price : 599.00,
         currency: 'INR',
         billing_interval: 'MONTHLY',
-        current_period_start: trialStartDate,
-        current_period_end: trialEndDate,
-        trial_start_at: trialStartDate,
-        trial_end_at: trialEndDate,
-        mandate_status: 'TRIAL',
+        current_period_start: null,
+        current_period_end: null,
+        trial_start_at: null,
+        trial_end_at: null,
+        mandate_status: 'PENDING',
         auto_renew: true
       }
-    });
-
-    // Send Trial Started Notification Email asynchronously
-    sendTrialStartedEmail({
-      businessId: company.id,
-      companyName: company.business_name,
-      companyId: company.company_id,
-      subscriberName: user.name,
-      subscriberEmail: user.email,
-      trialStartDate,
-      trialEndDate,
-      subscriptionId: createdSub.id
     });
 
     await logAudit({

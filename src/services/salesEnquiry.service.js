@@ -190,7 +190,7 @@ const createSalesEnquiry = async (data, authenticatedContext = null) => {
             </div>
 
             <div style="text-align: center;">
-              <a href="http://localhost:3002/admin/sales-enquiries/${newEnquiry.id}" style="display: inline-block; background-color: #2563eb; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 10px; font-weight: 700; font-size: 13px;">Open Enquiry in Super Admin Panel &rarr;</a>
+              <a href="${env.SUPER_ADMIN_URL || 'https://admin.vexainvoice.vexatech.in'}/admin/sales-enquiries/${newEnquiry.id}" style="display: inline-block; background-color: #2563eb; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 10px; font-weight: 700; font-size: 13px;">Open Enquiry in Super Admin Panel &rarr;</a>
             </div>
           </div>
         </div>

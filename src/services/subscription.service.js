@@ -12,10 +12,10 @@ const {
 } = require('./subscriptionEmail.service');
 
 const PLAN_STARTER_NAME = 'VEXA Starter';
-const PLAN_STARTER_AMOUNT = 599.00; // Flat ₹599/mo
+const PLAN_STARTER_AMOUNT = 599.00; // Starter plan ₹599/mo
 
 const PLAN_GROWTH_NAME = 'VEXA Growth';
-const PLAN_GROWTH_AMOUNT = 999.00; // Flat ₹999/mo
+const PLAN_GROWTH_AMOUNT = 999.00; // Growth plan ₹999/mo
 
 /**
  * Get active plans available for subscription
@@ -303,7 +303,7 @@ const verifySubscription = async (business_id, verificationData) => {
       business_id,
       provider_subscription_id: subId
     },
-    include: { businesses: true }
+    include: { businesses: true, subscription_plans: true }
   });
 
   if (!localSub) {
@@ -415,12 +415,14 @@ const verifySubscription = async (business_id, verificationData) => {
         });
 
         const owner = await tx.users.findFirst({ where: { business_id, role: 'ADMIN' } });
+        const planDisplayName = localSub.subscription_plans?.plan_name
+          || (Number(localSub.amount) >= 900 ? PLAN_GROWTH_NAME : PLAN_STARTER_NAME);
         sendNewSubscriptionSuccessEmail({
           businessId: business_id,
           companyName: localSub.businesses.business_name,
           subscriberName: owner?.name || 'Business Owner',
           subscriberEmail: owner?.email || localSub.businesses.email,
-          planName: PLAN_NAME,
+          planName: planDisplayName,
           amount: Number(localSub.amount),
           paymentReference: paymentRef,
           startDate: periodStart,
